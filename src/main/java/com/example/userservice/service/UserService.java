@@ -8,7 +8,10 @@ import org.springframework.http.ResponseEntity;
 
 public interface UserService {
     JwtResponse registration(RegistrationRequest request);
+
     ResponseEntity<?> authorization(JwtRequest request);
+
     JwtResponse updateTokens(String accessToken, String refreshToken);
+
     void signOut(SignOutRequest request);
 }

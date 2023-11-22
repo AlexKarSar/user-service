@@ -41,13 +41,13 @@ public class UserServiceImpl implements UserService, UserDetailsService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    public UserServiceImpl(UsersRepository usersRepository){
+    public UserServiceImpl(UsersRepository usersRepository) {
         this.usersRepository = usersRepository;
     }
 
     @Override
     public JwtResponse registration(RegistrationRequest request) {
-        if (usersRepository.findUserEntityByUsername(request.getUsername()) != null){
+        if (usersRepository.findUserEntityByUsername(request.getUsername()) != null) {
             return null;
         }
         JwtResponse response = JwtResponse.builder()
@@ -68,7 +68,7 @@ public class UserServiceImpl implements UserService, UserDetailsService {
     @Override
     public ResponseEntity<?> authorization(JwtRequest request) {
         UserEntity user = usersRepository.findUserEntityByUsername(request.getUsername());
-        if(user != null && passwordEncoder.matches(request.getPassword(), user.getPassword())){
+        if (user != null && passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             user.setRefreshToken(jwtService.generateRefreshToken());
             usersRepository.updateByUsername(user.getRefreshToken(), user.getUsername());
             return ResponseEntity.ok(new JwtResponse(jwtService.generateAccessToken(request.getUsername()), user.getRefreshToken(), jwtService.getTtlAccess()));
@@ -80,10 +80,10 @@ public class UserServiceImpl implements UserService, UserDetailsService {
     public JwtResponse updateTokens(String accessToken, String refreshToken) {
         JwtResponse response = null;
         UserEntity userEntity = usersRepository.findUserEntityByUsername(jwtService.getAllClaims(accessToken));
-        if(
+        if (
                 jwtService.validationToken(accessToken)
-                && userEntity != null
-                && userEntity.getRefreshToken().equals(refreshToken)){
+                        && userEntity != null
+                        && userEntity.getRefreshToken().equals(refreshToken)) {
 
             accessToken = jwtService.generateAccessToken(jwtService.getAllClaims(accessToken));
             refreshToken = jwtService.generateRefreshToken();
@@ -100,7 +100,7 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         if (!jwtService.validationToken(request.getAccessToken())) return;
         UserEntity userEntity = usersRepository.findUserEntityByUsername(jwtService.getAllClaims(request.getAccessToken()));
         userEntity.setRefreshToken("");
-        usersRepository.updateByUsername("",jwtService.getAllClaims(request.getAccessToken()));
+        usersRepository.updateByUsername("", jwtService.getAllClaims(request.getAccessToken()));
     }
 
     @Override
@@ -108,7 +108,6 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         UserEntity user = usersRepository.findUserEntityByUsername(username);
         return new User(user.getUsername(), user.getPassword(), null);
     }
-
 
 
 }

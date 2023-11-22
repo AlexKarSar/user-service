@@ -38,10 +38,11 @@ public class JwtServiceImpl implements JwtService {
     @Value("${jwt.tokenAccessTtl}")
     private Long ttlAccess;
 
-    public Long getTtlRefresh(){
+    public Long getTtlRefresh() {
         return ttlRefresh;
     }
-    public Long getTtlAccess(){
+
+    public Long getTtlAccess() {
         return ttlAccess;
     }
 
@@ -57,7 +58,7 @@ public class JwtServiceImpl implements JwtService {
     }
 
     @Override
-    public String generateRefreshToken(){
+    public String generateRefreshToken() {
         Map<String, Object> map = new HashMap<String, Object>();
         map.put("alg", "HS256");
         return JWT.create()
@@ -67,13 +68,13 @@ public class JwtServiceImpl implements JwtService {
     }
 
     @Override
-    public String getAllClaims(String token){
+    public String getAllClaims(String token) {
         String str = String.valueOf(JWT.decode(token).getClaim("username"));
-        return str.substring(1, str.length()-1);
+        return str.substring(1, str.length() - 1);
     }
 
     @Override
-    public boolean validationToken(String token){
+    public boolean validationToken(String token) {
         Map<String, Object> map = new HashMap<String, Object>();
         map.put("alg", "HS256");
         String tmpT = JWT.create()
@@ -81,13 +82,13 @@ public class JwtServiceImpl implements JwtService {
                 .withExpiresAt(JWT.decode(token).getExpiresAt())
                 .withHeader(map)
                 .sign(Algorithm.HMAC256(secret));
-                if (JWT.decode(token).getSignature().equals(tmpT.substring(tmpT.lastIndexOf('.')+1)))return true;
-                else return false;
+        if (JWT.decode(token).getSignature().equals(tmpT.substring(tmpT.lastIndexOf('.') + 1))) return true;
+        else return false;
     }
 
     @Override
-    public boolean validationExpiredToken(String token){
-        if (JWT.decode(token).getExpiresAt().toInstant().compareTo(LocalDateTime.now().toInstant(ZoneOffset.UTC))>0){
+    public boolean validationExpiredToken(String token) {
+        if (JWT.decode(token).getExpiresAt().toInstant().compareTo(LocalDateTime.now().toInstant(ZoneOffset.UTC)) > 0) {
             return false;
         }
         return true;
