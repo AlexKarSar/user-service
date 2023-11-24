@@ -18,5 +18,5 @@ public interface JwtService {
 
     boolean validationToken(String token);
 
-    boolean validationExpiredToken(String token);
+    boolean isExpired(String token);
 }

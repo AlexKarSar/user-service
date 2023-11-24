@@ -31,6 +31,8 @@ import java.util.*;
 @Data
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService, UserDetailsService {
+    @Autowired
+    private AuthenticationManager authenticationManager;
 
     @Autowired
     private UsersRepository usersRepository;
@@ -69,7 +71,9 @@ public class UserServiceImpl implements UserService, UserDetailsService {
     public ResponseEntity<?> authorization(JwtRequest request) {
         UserEntity user = usersRepository.findUserEntityByUsername(request.getUsername());
         if (user != null && passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            user.setRefreshToken(jwtService.generateRefreshToken());
+            if(jwtService.isExpired(user.getRefreshToken())){
+                user.setRefreshToken(jwtService.generateRefreshToken());
+            }
             usersRepository.updateByUsername(user.getRefreshToken(), user.getUsername());
             return ResponseEntity.ok(new JwtResponse(jwtService.generateAccessToken(request.getUsername()), user.getRefreshToken(), jwtService.getTtlAccess()));
         }

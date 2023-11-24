@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.config.annotation.rsocket.RSocketSecurity;
 import org.springframework.stereotype.Service;
 
+import java.sql.Date;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashMap;
@@ -32,7 +33,7 @@ public class JwtServiceImpl implements JwtService {
     @Value("${jwt.secret}")
     private String secret;
 
-    @Value("${jwt.tokenTtl}")
+    @Value("${jwt.tokenRefreshTtl}")
     private Long ttlRefresh;
 
     @Value("${jwt.tokenAccessTtl}")
@@ -87,7 +88,7 @@ public class JwtServiceImpl implements JwtService {
     }
 
     @Override
-    public boolean validationExpiredToken(String token) {
+    public boolean isExpired(String token) {
         if (JWT.decode(token).getExpiresAt().toInstant().compareTo(LocalDateTime.now().toInstant(ZoneOffset.UTC)) > 0) {
             return false;
         }
