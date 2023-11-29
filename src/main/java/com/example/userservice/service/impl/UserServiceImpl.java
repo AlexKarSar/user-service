@@ -6,17 +6,22 @@ import com.example.userservice.dto.request.JwtRequest;
 import com.example.userservice.dto.request.RegistrationRequest;
 import com.example.userservice.dto.request.SignOutRequest;
 import com.example.userservice.dto.response.JwtResponse;
+import com.example.userservice.exceptions.Error;
 import com.example.userservice.service.JwtService;
 import com.example.userservice.service.UserService;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.security.SecurityProperties;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -29,23 +34,18 @@ import java.util.*;
 
 @Service
 @Data
-@RequiredArgsConstructor
-public class UserServiceImpl implements UserService, UserDetailsService {
-    @Autowired
-    private AuthenticationManager authenticationManager;
+@RequiredArgsConstructor(onConstructor_ = {@Lazy})
 
-    @Autowired
-    private UsersRepository usersRepository;
+public class UserServiceImpl implements UserService {
 
-    @Autowired
-    private JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final UsersRepository usersRepository;
 
-    public UserServiceImpl(UsersRepository usersRepository) {
-        this.usersRepository = usersRepository;
-    }
+    private final JwtService jwtService;
+
+    private final PasswordEncoder passwordEncoder;
+
 
     @Override
     public JwtResponse registration(RegistrationRequest request) {
@@ -64,20 +64,24 @@ public class UserServiceImpl implements UserService, UserDetailsService {
                 .refreshToken(response.getRefreshToken())
                 .build();
         usersRepository.save(userEntity);
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
         return response;
     }
 
     @Override
     public ResponseEntity<?> authorization(JwtRequest request) {
-        UserEntity user = usersRepository.findUserEntityByUsername(request.getUsername());
-        if (user != null && passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            if(jwtService.isExpired(user.getRefreshToken())){
-                user.setRefreshToken(jwtService.generateRefreshToken());
-            }
-            usersRepository.updateByUsername(user.getRefreshToken(), user.getUsername());
-            return ResponseEntity.ok(new JwtResponse(jwtService.generateAccessToken(request.getUsername()), user.getRefreshToken(), jwtService.getTtlAccess()));
+        try {
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
+        } catch (BadCredentialsException e) {
+            return new ResponseEntity<>(new Error(HttpStatus.UNAUTHORIZED.value(), "Неверно введены данные или заданного пользователя не существует"), HttpStatus.UNAUTHORIZED);
         }
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Неверный ввод данных");
+        UserEntity user = usersRepository.findUserEntityByUsername(request.getUsername());
+        if (jwtService.isExpired(user.getRefreshToken())) {
+            user.setRefreshToken(jwtService.generateRefreshToken());
+        }
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
+        usersRepository.updateByUsername(user.getRefreshToken(), user.getUsername());
+        return ResponseEntity.ok(new JwtResponse(jwtService.generateAccessToken(request.getUsername()), user.getRefreshToken(), jwtService.getTtlAccess()));
     }
 
     @Override
@@ -94,7 +98,6 @@ public class UserServiceImpl implements UserService, UserDetailsService {
             userEntity.setRefreshToken(refreshToken);
             usersRepository.updateByUsername(refreshToken, jwtService.getAllClaims(accessToken));
             response = new JwtResponse(accessToken, refreshToken, jwtService.getTtlAccess());
-
         }
         return response;
     }
@@ -107,10 +110,19 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         usersRepository.updateByUsername("", jwtService.getAllClaims(request.getAccessToken()));
     }
 
+
     @Override
+    @Transactional
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         UserEntity user = usersRepository.findUserEntityByUsername(username);
-        return new User(user.getUsername(), user.getPassword(), null);
+        if (user == null) {
+            throw new UsernameNotFoundException(String.format("Нет пользователя с никнеймом '%s'", username));
+        }
+        return new org.springframework.security.core.userdetails.User(
+                user.getUsername(),
+                user.getPassword(),
+                new ArrayList<>()
+        );
     }
 
 
